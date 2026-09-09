@@ -566,8 +566,10 @@ function buildMedidasHTML(c){
   const medidas=medRev||medS0;
   const s0badge=(!medRev&&medS0)?'<span style="font-size:9px;background:var(--vd);color:#fff;border-radius:4px;padding:1px 5px;margin-left:6px">S0 formulario</span>':'';
   const btn='<div style="text-align:right;margin-bottom:8px"><button class="btn bo bs" onclick="loadMedidasCliente(this.dataset.id)" data-id="'+c.id+'">📏 Cargar medidas</button></div>';
+  // Always show table — empty if no data
   return'<div id="medidas-'+c.id+'">'+
-    (medidas?'<div style="text-align:right;margin-bottom:4px">'+s0badge+'</div>'+renderMedidasTable(medidas,c.id):btn)+
+    '<div style="text-align:right;margin-bottom:4px">'+s0badge+'</div>'+
+    renderMedidasTable(medidas||{},c.id)+
     '</div>';
 }
 
