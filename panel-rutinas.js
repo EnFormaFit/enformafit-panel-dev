@@ -224,7 +224,7 @@ function ejRow(ej,ei){
       <input class="ei" value="${ej.nom}" placeholder="Nombre ejercicio..."
         oninput="acSearch(this,${ei});ejUpd(${ei},'nom',this.value)"
         onfocus="acSearch(this,${ei})"
-        onblur="setTimeout(()=>acHide(${ei}),160);ejSave(${ei},'nom',this.value)">
+        onblur="var _inp=this;setTimeout(()=>{var acList=document.getElementById('ac-${ei}');var acVisible=acList&&acList.style.display!=='none';acHide(${ei});if(!acVisible)ejSave(${ei},'nom',_inp.value);},200)">
       <div class="ac-list" id="ac-${ei}" style="display:none"></div>
       ${lastLogH}
     </div>
@@ -250,6 +250,15 @@ function ejUpd(ei,k,v){
 // Save to undo on blur/change (when leaving field)
 function ejSave(ei,k,v){
   if(_blockEjSave)return;
+  // If nom was just set by acSel for this slot (within last 1s), skip
+  if(k==='nom' && window._acJustSelected && window._acJustSelected[ei]){
+    const sel = window._acJustSelected[ei];
+    if(Date.now() - sel.ts < 1000){
+      // Use the acSel name instead of the truncated onblur value
+      v = sel.nom;
+      delete window._acJustSelected[ei];
+    }
+  }
   rutPush();
   const ejes=getRut(RUT_CLI,RUT_SEM,RUT_DIA);
   if(ejes[ei])ejes[ei][k]=v;
@@ -283,9 +292,16 @@ function acSearch(inp,ei){
   list.style.display='block';
 }
 function acHide(ei){const l=document.getElementById('ac-'+ei);if(l)l.style.display='none';}
+let _acSelLock=false;
 function acSel(ei,nom){
-  const ej=EJ.find(e=>e.nombre===nom);if(!ej)return;
+  if(_acSelLock)return;
+  _acSelLock=true;
+  setTimeout(()=>{_acSelLock=false;},500);
+  const ej=EJ.find(e=>e.nombre===nom);if(!ej){_acSelLock=false;return;}
   rutPush();
+  // Mark this slot as just selected from autocomplete — ejSave should not overwrite
+  window._acJustSelected = window._acJustSelected || {};
+  window._acJustSelected[ei] = {nom: ej.nombre, ts: Date.now()};
   const ejes=getRut(RUT_CLI,RUT_SEM,RUT_DIA);
   if(ejes[ei]){
     ejes[ei].nom=ej.nombre;ejes[ei].sets=parseInt(ej.series)||3;
@@ -299,6 +315,11 @@ function acSel(ei,nom){
   const row=document.getElementById('ejr-'+ei);
   if(row)row.outerHTML=ejRow(ejes[ei],ei);
   toast(nom+' ✓','vd');
+  // Force save to BD after delay to overwrite any truncated name from onblur
+  clearTimeout(window._ejSaveBD);
+  window._ejSaveBD=setTimeout(()=>{
+    if(API_TOKEN&&RUT_CLI){guardarRutinaEnBD(RUT_CLI);}
+  },500);
 }
 
 function addEj(){
